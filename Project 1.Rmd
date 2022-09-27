@@ -1,0 +1,33 @@
+---
+title: "Project 1"
+output: html_document
+date: "2022-09-27"
+---
+```{r}
+install.packages("caret")
+library(caret)
+```
+
+```{r}
+data <- read.csv("data/Ames_data.csv")
+testIDs <- read.table("data/project1_testIDs.dat")
+j <- 2
+train <- data[-testIDs[,j], ]
+test <- data[testIDs[,j], ]
+test.y <- test[, c(1, 83)]
+test <- test[, -83]
+write.csv(train,"data/train.csv",row.names=FALSE)
+write.csv(test, "data/test.csv",row.names=FALSE)
+write.csv(test.y,"data/test_y.csv",row.names=FALSE)
+```
+
+```{r}
+model <- train(
+  test.y ~ .,
+  data = data,
+  method = 'lasso'
+)
+
+plot(model)
+```
+
