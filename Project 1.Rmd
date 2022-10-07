@@ -18,7 +18,7 @@ drop <- c('Street', 'Utilities', 'Condition_2', 'Roof_Matl', 'Heating', 'Pool_QC
 housingData = data[,!(names(data) %in% drop)]
 
 # Set NA values to 0
-data[is.na(test_data)] = 0
+housingData[is.na(housingData)] = 0
 
 # Create train and test datasets
 j <- 2
@@ -44,8 +44,13 @@ categorical.vars <- colnames(train.x)[
 train.matrix <- train.x[, !colnames(train.x) %in% categorical.vars, 
                           drop=FALSE]
 n.train <- nrow(train.matrix)
+
+train_levels <- list()
+
+#Save train.x levels to compare with test.x levels later
 for(var in categorical.vars){
     mylevels <- sort(unique(train.x[, var]))
+    train_levels <- c(train_levels, mylevels)
     m <- length(mylevels)
     m <- ifelse(m>2, m, 1)
     tmp.train <- matrix(0, n.train, m)
@@ -58,7 +63,37 @@ for(var in categorical.vars){
     train.matrix <- cbind(train.matrix, tmp.train)
 }
 
-#Process test data
+
+
+
+
+# Process test data
+x_test_drop <- 'PID'
+test.x = test[,!(names(test) %in% x_test_drop)] # test data without "PID" and "Sale_Price"
+
+test_categorical.vars <- colnames(train.x)[
+  which(sapply(train.x,
+                 function(x) mode(x)=="character"))]
+test.matrix <- train.x[, !colnames(train.x) %in% test_categorical.vars, 
+                          drop=FALSE]
+n.test <- nrow(test.matrix)
+
+for(var in categorical.vars){
+    testlevels <- sort(unique(test.x[, var]))
+    m <- length(testlevels)
+    m <- ifelse(m>2, m, 1)
+    tmp.test <- matrix(0, n.test, m)
+    col.names <- NULL
+    for(j in 1:m){
+      tmp.test[test.x[, var]==testlevels[j], j] <- 1
+      col.names <- c(col.names, paste(var, '_', testlevels[j], sep=''))
+      }
+    colnames(tmp.test) <- col.names
+    test.matrix <- cbind(test.matrix, tmp.test)
+}
+
+
+
 
 
 
@@ -70,6 +105,8 @@ xgb.model <- xgboost(data = as.matrix(train.matrix),
                        eta = 0.05, nrounds = 5000,
                        subsample = 0.5,
                        verbose = FALSE)
+
+predict(xgb.model, as.matrix(test))
 
 
 ```
