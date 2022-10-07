@@ -96,6 +96,15 @@ for(var in categorical.vars){
 
 
 
+# We need to match the columns for train.matrix to test.matrix. 
+# If there is a column in train.matrix that isnt in test.matrix created the column with all 0 values. 
+# If there is a column in test.matrix that is not in train.matrix remove that column. 
+# Columns have to be the same order for both
+
+
+
+
+
 
 # Remember to set a seed so we can reproduce your results; 
 # the seed does not need to be related to your UIN. 
