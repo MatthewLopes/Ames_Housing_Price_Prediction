@@ -64,16 +64,13 @@ for(var in categorical.vars){
 }
 
 
-
-
-
 # Process test data
 x_test_drop <- 'PID'
 test.x = test[,!(names(test) %in% x_test_drop)] # test data without "PID" and "Sale_Price"
 
-test_categorical.vars <- colnames(train.x)[
-  which(sapply(train.x,
-                 function(x) mode(x)=="character"))]
+#test_categorical.vars <- colnames(train.x)[
+  #which(sapply(train.x,
+                 #function(x) mode(x)=="character"))]
 test.matrix <- train.x[, !colnames(train.x) %in% test_categorical.vars, 
                           drop=FALSE]
 n.test <- nrow(test.matrix)
@@ -97,8 +94,8 @@ for(var in categorical.vars){
 
 
 # We need to match the columns for train.matrix to test.matrix. 
-# If there is a column in train.matrix that isnt in test.matrix created the column with all 0 values. 
-# If there is a column in test.matrix that is not in train.matrix remove that column. 
+# If there is a column in train.matrix that isnt in test.matrix create the column with all 0 values in the test.matrix. 
+# If there is a column in test.matrix that is not in train.matrix remove that column from test.matrix. 
 # Columns have to be the same order for both
 
 
