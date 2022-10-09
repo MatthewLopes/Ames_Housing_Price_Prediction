@@ -6,6 +6,8 @@ date: "2022-09-27"
 ```{r}
 library(caret)
 library(xgboost)
+library(randomForest)
+library(glmnet)
 ```
 
 ```{r}
@@ -93,18 +95,8 @@ for(var in categorical.vars){
 # If there is a column in test.matrix that is not in train.matrix remove that column from test.matrix. 
 # Columns have to be the same order for both
 
-#test_cols_set <- hash(colnames(test.matrix),(1:length(colnames(test.matrix))) ) 
 test_col_names = colnames(test.matrix)
 train_col_names = colnames(train.matrix)
-
-# new_cols = c()
-# for (i in 1:length(colnames(train.matrix))){
-#   if(has.key(train_col_names[i],test_cols_set) == TRUE){
-#     
-#   }
-#    # test_cols_set.has.key(train.matrix[1,i])
-# }
-
 
 columns_to_drop_from_test_matrix = c()
 
@@ -153,12 +145,17 @@ train_matrix_df = train_matrix_df[,sort(names(train_matrix_df))]
 #   }
 # }
 
-
 # Remember to set a seed so we can reproduce your results; 
 # the seed does not need to be related to your UIN. 
 set.seed(1852)
+
+```
+
+```{r}
+# Decision Tree
+
 xgb.model <- xgboost(data = as.matrix(train_matrix_df), 
-                       label = as.matrix(log(train.y)), max_depth = 6,
+                       label = as.matrix(train.y), max_depth = 6,
                        eta = 0.05, nrounds = 5000,
                        subsample = 0.5,
                        verbose = FALSE)
@@ -170,7 +167,6 @@ xgb.model <- xgboost(data = as.matrix(train_matrix_df),
 df = data.frame(PID = test.y[1], Sale_Price = exp(predict(xgb.model, as.matrix(test_matrix_df))))
 
 write.csv(df,"data/mysubmission1.txt", row.names = FALSE, quote=FALSE)
-
 ```
 
 ```{r}
@@ -178,5 +174,107 @@ pred <- read.csv("data/mysubmission1.txt")
 names(test.y)[2] <- "True_Sale_Price"
 pred <- merge(pred, test.y, by="PID")
 sqrt(mean((log(pred$Sale_Price) - log(pred$True_Sale_Price))^2))
+```
+```{r}
+# Random Forest
+
+rf <- randomForest(x=as.matrix(train_matrix_df), y=as.matrix(train.y), 
+                       mtry=14, importance=TRUE, ntree = 100)
+
+#p1 <- predict(rf, as.matrix(test_matrix_df))
+
+randomForest_df = data.frame(PID = test.y[1], Sale_Price = exp(predict(rf, as.matrix(test_matrix_df))))
+
+write.csv(randomForest_df,"data/mysubmission2.txt", row.names = FALSE, quote=FALSE)
+
+```
+
+```{r}
+pred <- read.csv("data/mysubmission2.txt")
+names(test.y)[2] <- "True_Sale_Price"
+pred <- merge(pred, test.y, by="PID")
+sqrt(mean((log(pred$Sale_Price) - log(pred$True_Sale_Price))^2))
+```
+```{r}
+# Ridge Regression
+
+mylasso.lambda.seq = exp(seq(-10, 1, length.out = 100))
+cv.out = cv.glmnet(as.matrix(train_matrix_df), as.matrix(train.y), alpha = 0, 
+                    lambda = mylasso.lambda.seq)
+  
+best.lam = cv.out$lambda.min
+Ytest.pred = exp(predict(cv.out, s = best.lam, newx = as.matrix(test_matrix_df)))
+
+colnames(Ytest.pred)[1]<-"Sale_Price"
+
+ridge_df = data.frame(PID = test.y[1], Sale_Price = Ytest.pred)
+
+write.csv(ridge_df,"data/mysubmission3.txt", row.names = FALSE, quote=FALSE)
+
+```
+
+```{r}
+pred <- read.csv("data/mysubmission3.txt")
+names(test.y)[2] <- "True_Sale_Price"
+pred <- merge(pred, test.y, by="PID")
+sqrt(mean((log(pred$Sale_Price) - log(pred$True_Sale_Price))^2))
+```
+```{r}
+#Lasso Regression
+
+cv.out = cv.glmnet(as.matrix(train_matrix_df), as.matrix(train.y), alpha = 1)
+best.lam = cv.out$lambda.min
+Ytest.pred = exp(predict(cv.out, s = best.lam, newx = as.matrix(test_matrix_df)))
+
+colnames(Ytest.pred)[1]<-"Sale_Price"
+
+lasso_df = data.frame(PID = test.y[1], Sale_Price = Ytest.pred)
+
+write.csv(lasso_df,"data/mysubmission4.txt", row.names = FALSE, quote=FALSE)
+
+```
+
+```{r}
+pred <- read.csv("data/mysubmission4.txt")
+names(test.y)[2] <- "True_Sale_Price"
+pred <- merge(pred, test.y, by="PID")
+sqrt(mean((log(pred$Sale_Price) - log(pred$True_Sale_Price))^2))
+```
+```{r}
+mylasso.lambda.seq = exp(seq(-10, 1, length.out = 100))
+cv.out = cv.glmnet(as.matrix(train_matrix_df), as.matrix(train.y), alpha = 0.77, 
+                    lambda = mylasso.lambda.seq)
+  
+best.lam = cv.out$lambda.min
+Ytest.pred = exp(predict(cv.out, s = best.lam, newx = as.matrix(test_matrix_df)))
+
+colnames(Ytest.pred)[1]<-"Sale_Price"
+
+ridge_df = data.frame(PID = test.y[1], Sale_Price = Ytest.pred)
+
+write.csv(ridge_df,"data/mysubmission5.txt", row.names = FALSE, quote=FALSE)
+```
+
+```{r}
+pred <- read.csv("data/mysubmission5.txt")
+names(test.y)[2] <- "True_Sale_Price"
+pred <- merge(pred, test.y, by="PID")
+sqrt(mean((log(pred$Sale_Price) - log(pred$True_Sale_Price))^2))
+```
+```{r}
+cv.out <- cv.glmnet(as.matrix(train_matrix_df), as.matrix(train.y), alpha = 1)
+
+sel.vars <- predict(cv.out, type="nonzero", s = cv.out$lambda.min)$X1
+
+cv.out <- cv.glmnet(as.matrix(as.matrix(train_matrix_df)[, sel.vars]), as.matrix(train.y), alpha = 0)
+
+Ytest.pred <- exp(predict(cv.out, s = cv.out$lambda.min, newx = as.matrix(test_matrix_df[, sel.vars])))
+
+colnames(Ytest.pred)[1]<-"Sale_Price"
+
+ridge_df = data.frame(PID = test.y[1], Sale_Price = Ytest.pred)
+
+write.csv(ridge_df,"data/mysubmission6.txt", row.names = FALSE, quote=FALSE)
+
 ```
 
