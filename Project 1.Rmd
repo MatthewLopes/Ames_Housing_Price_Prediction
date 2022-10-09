@@ -6,7 +6,6 @@ date: "2022-09-27"
 ```{r}
 library(caret)
 library(xgboost)
-library(hash)
 ```
 
 ```{r}
@@ -64,15 +63,14 @@ for(var in categorical.vars){
     train.matrix <- cbind(train.matrix, tmp.train)
 }
 
-
 # Process test data
 x_test_drop <- 'PID'
 test.x = test[,!(names(test) %in% x_test_drop)] # test data without "PID" and "Sale_Price"
 
-test_categorical.vars <- colnames(train.x)[
-which(sapply(train.x, function(x) mode(x)=="character"))]
+test_categorical.vars <- colnames(test.x)[
+which(sapply(test.x, function(x) mode(x)=="character"))]
 
-test.matrix <- train.x[, !colnames(train.x) %in% test_categorical.vars, 
+test.matrix <- test.x[, !colnames(test.x) %in% test_categorical.vars, 
                           drop=FALSE]
 n.test <- nrow(test.matrix)
 
@@ -95,35 +93,90 @@ for(var in categorical.vars){
 # If there is a column in test.matrix that is not in train.matrix remove that column from test.matrix. 
 # Columns have to be the same order for both
 
-test_cols_set <- hash(colnames(test.matrix),(1:length(colnames(test.matrix))) ) 
+#test_cols_set <- hash(colnames(test.matrix),(1:length(colnames(test.matrix))) ) 
+test_col_names = colnames(test.matrix)
 train_col_names = colnames(train.matrix)
 
+# new_cols = c()
+# for (i in 1:length(colnames(train.matrix))){
+#   if(has.key(train_col_names[i],test_cols_set) == TRUE){
+#     
+#   }
+#    # test_cols_set.has.key(train.matrix[1,i])
+# }
 
-new_cols = c()
-for (i in 1:length(colnames(train.matrix))){
-  if(has.key(train_col_names[i],test_cols_set) == TRUE){
-    
+
+columns_to_drop_from_test_matrix = c()
+
+for (test_name in test_col_names) {
+  found = 0
+  
+  for (train_name in train_col_names) {
+    if(train_name == test_name) {
+      found = 1
+    }
   }
-   # test_cols_set.has.key(train.matrix[1,i])
+  
+  if(found == 0) {
+    columns_to_drop_from_test_matrix = c(columns_to_drop_from_test_matrix, test_name)
+  }
 }
 
+test.matrix = test.matrix[,!(names(test.matrix) %in% columns_to_drop_from_test_matrix)]
+
+test_matrix_df = as.data.frame(test.matrix)
+train_matrix_df = as.data.frame(train.matrix)
+
+
+for (train_name in train_col_names) {
+  found = 0
+  
+  for (test_name in test_col_names) {
+    if(test_name == train_name) {
+      found = 1
+    }
+  }
+  
+  if(found == 0) {
+    test_matrix_df[train_name] = rep(0, dim(test.matrix)[1])
+  }
+}
+
+test_matrix_df = test_matrix_df[,sort(names(test_matrix_df))]
+train_matrix_df = train_matrix_df[,sort(names(train_matrix_df))]
+
+# for(i in ncol(test_matrix_df)) {
+#   if (colnames(test_matrix_df)[i] != colnames(train_matrix_df)[i]) {
+#    print("HERE")
+#     print(colnames(test_matrix_df)[i])
+#     print(colnames(train_matrix_df)[i])
+#   }
+# }
 
 
 # Remember to set a seed so we can reproduce your results; 
 # the seed does not need to be related to your UIN. 
 set.seed(1852)
-xgb.model <- xgboost(data = as.matrix(train.matrix), 
-                       label = as.matrix(train.y), max_depth = 6,
+xgb.model <- xgboost(data = as.matrix(train_matrix_df), 
+                       label = as.matrix(log(train.y)), max_depth = 6,
                        eta = 0.05, nrounds = 5000,
                        subsample = 0.5,
                        verbose = FALSE)
 
-predict(xgb.model, as.matrix(test))
+#predict(xgb.model, as.matrix(test_matrix_df))
 
+# From Campuswire post 490 we are training the model on the log of train.y (line 161) and then writing to the csv the exp of the prediction (line 170)
+
+df = data.frame(PID = test.y[1], Sale_Price = exp(predict(xgb.model, as.matrix(test_matrix_df))))
+
+write.csv(df,"data/mysubmission1.txt", row.names = FALSE, quote=FALSE)
 
 ```
 
 ```{r}
-
+pred <- read.csv("data/mysubmission1.txt")
+names(test.y)[2] <- "True_Sale_Price"
+pred <- merge(pred, test.y, by="PID")
+sqrt(mean((log(pred$Sale_Price) - log(pred$True_Sale_Price))^2))
 ```
 
