@@ -1,11 +1,18 @@
+list.of.packages <- c("caret", "xgboost", "randomForest", "glmnet")
+new.packages <- list.of.packages[!(list.of.packages %in% installed.packages()[,"Package"])]
+if(length(new.packages)) install.packages(new.packages)
+
 library(caret)
 library(xgboost)
 library(randomForest)
 library(glmnet)
 
+set.seed(1852)
+
 # Get data
 train <- read.csv("train.csv")
 test <- read.csv("test.csv")
+PIDs <- test[,1]
 
 drop <- c('Street', 'Utilities', 'Condition_2', 'Roof_Matl', 'Heating', 'Pool_QC', 'Misc_Feature', 'Low_Qual_Fin_SF', 'Pool_Area', 'Longitude','Latitude')
 train = train[,!(names(train) %in% drop)]
@@ -119,7 +126,7 @@ train_matrix_df = train_matrix_df[,sort(names(train_matrix_df))]
 
 # Remember to set a seed so we can reproduce your results; 
 # the seed does not need to be related to your UIN. 
-set.seed(1852)
+
 
 
 # Decision Tree
@@ -129,7 +136,7 @@ xgb.model <- xgboost(data = as.matrix(train_matrix_df),
                      subsample = 0.5,
                      verbose = FALSE)
 
-df = data.frame(PID = test.y[1], Sale_Price = exp(predict(xgb.model, as.matrix(test_matrix_df))))
+df = data.frame(PID = PIDs, Sale_Price = exp(predict(xgb.model, as.matrix(test_matrix_df))))
 
 write.csv(df,"mysubmission1.txt", row.names = FALSE, quote=FALSE)
 
@@ -143,6 +150,6 @@ cv.out = cv.glmnet(as.matrix(train_matrix_df), as.matrix(train.y), alpha = 0.77,
 best.lam = cv.out$lambda.min
 Ytest.pred = exp(predict(cv.out, s = best.lam, newx = as.matrix(test_matrix_df)))
 colnames(Ytest.pred)[1]<-"Sale_Price"
-ridge_df = data.frame(PID = test.y[1], Sale_Price = Ytest.pred)
+ridge_df = data.frame(PID =  PIDs, Sale_Price = Ytest.pred)
 write.csv(ridge_df,"mysubmission2.txt", row.names = FALSE, quote=FALSE)
 
