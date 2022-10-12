@@ -4,6 +4,10 @@ output: html_document
 date: "2022-09-27"
 ---
 ```{r}
+list.of.packages <- c("caret", "xgboost", "randomForest", "glmnet")
+new.packages <- list.of.packages[!(list.of.packages %in% installed.packages()[,"Package"])]
+if(length(new.packages)) install.packages(new.packages)
+
 library(caret)
 library(xgboost)
 library(randomForest)
@@ -31,9 +35,7 @@ testIDs <- read.table("project1_testIDs.dat")
 
 #print("TEST")
 
-#for (j in 1:10) {
-  #print(j)
-  j <- 2
+for (j in 1:10) {
   train <- data[-testIDs[,j], ]
   test <- data[testIDs[,j], ]
   test.y <- test[, c(1, 83)]
@@ -45,13 +47,14 @@ testIDs <- read.table("project1_testIDs.dat")
   write.csv(train, paste0(directory, "/train.csv"),row.names=FALSE)
   write.csv(test, paste0(directory, "/test.csv"),row.names=FALSE)
   write.csv(test.y, paste0(directory, "/test_y.csv"),row.names=FALSE)
-#}
+}
 
 ```
 
 ```{r}
 train <- read.csv("train.csv")
 test <- read.csv("test.csv")
+PIDs <- test[,1]
 
 drop <- c('Street', 'Utilities', 'Condition_2', 'Roof_Matl', 'Heating', 'Pool_QC', 'Misc_Feature', 'Low_Qual_Fin_SF', 'Pool_Area', 'Longitude','Latitude')
 train = train[,!(names(train) %in% drop)]
@@ -211,7 +214,7 @@ xgb.model <- xgboost(data = as.matrix(train_matrix_df),
 
 # From Campuswire post 490 we are training the model on the log of train.y (line 161) and then writing to the csv the exp of the prediction (line 170)
 
-df = data.frame(PID = test.y[1], Sale_Price = exp(predict(xgb.model, as.matrix(test_matrix_df))))
+df = data.frame(PID = PIDs, Sale_Price = exp(predict(xgb.model, as.matrix(test_matrix_df))))
 
 write.csv(df,"mysubmission1.txt", row.names = FALSE, quote=FALSE)
 
