@@ -1,11 +1,18 @@
+list.of.packages <- c("caret", "xgboost", "randomForest", "glmnet")
+new.packages <- list.of.packages[!(list.of.packages %in% installed.packages()[,"Package"])]
+if(length(new.packages)) install.packages(new.packages)
+
 library(caret)
 library(xgboost)
 library(randomForest)
 library(glmnet)
 
+set.seed(1852)
+
 # Get data
 train <- read.csv("train.csv")
 test <- read.csv("test.csv")
+PIDs <- test[,1]
 
 drop <- c('Street', 'Utilities', 'Condition_2', 'Roof_Matl', 'Heating', 'Pool_QC', 'Misc_Feature', 'Low_Qual_Fin_SF', 'Pool_Area', 'Longitude','Latitude')
 train = train[,!(names(train) %in% drop)]
@@ -18,6 +25,33 @@ test[is.na(test)] = 0
 x_train_drop <- c('PID','Sale_Price')
 train.x  = train[,!(names(train) %in% x_train_drop)] # train data without "PID" and "Sale_Price"
 train.y = log(train['Sale_Price'])# log transformed "Sale_Price"
+
+
+
+#### Winsorization ########
+
+winsor.vars <- c("Lot_Frontage", "Lot_Area", "Mas_Vnr_Area", "BsmtFin_SF_2", "Bsmt_Unf_SF", "Total_Bsmt_SF", "Second_Flr_SF", 'First_Flr_SF', "Gr_Liv_Area", "Garage_Area", "Wood_Deck_SF", "Open_Porch_SF", "Enclosed_Porch", "Three_season_porch", "Screen_Porch", "Misc_Val")
+
+# before_x = train.x
+
+quantiles = c()
+
+quan.value <- 0.95
+for(var in winsor.vars){
+  temp <- train.x[, var]
+  myquan <- quantile(temp, probs = quan.value, na.rm = TRUE)
+  quantiles = c(quantiles, myquan)
+  # beforetmp = temp
+  temp[temp > myquan] <- myquan
+  train.x[, var] <- temp
+  
+  # print(all.equal(beforetmp,temp))
+}
+
+##############################
+
+
+
 
 # Process train data
 categorical.vars <- colnames(train.x)[
@@ -51,6 +85,23 @@ test.x = test[,!(names(test) %in% x_test_drop)] # test data without "PID" and "S
 
 test_categorical.vars <- colnames(test.x)[
   which(sapply(test.x, function(x) mode(x)=="character"))]
+
+
+#### Windsorization ###
+
+for(i in 1:length(winsor.vars)){
+  var = winsor.vars[i]
+  temp <- test.x[, var]
+  
+  myquan = quantiles[i]
+  # beforetmp = temp
+  temp[temp > myquan] <- myquan
+  test.x[, var] <- temp
+  
+}
+
+############################
+
 
 test.matrix <- test.x[, !colnames(test.x) %in% test_categorical.vars, 
                       drop=FALSE]
@@ -119,7 +170,7 @@ train_matrix_df = train_matrix_df[,sort(names(train_matrix_df))]
 
 # Remember to set a seed so we can reproduce your results; 
 # the seed does not need to be related to your UIN. 
-set.seed(1852)
+
 
 
 # Decision Tree
@@ -129,7 +180,7 @@ xgb.model <- xgboost(data = as.matrix(train_matrix_df),
                      subsample = 0.5,
                      verbose = FALSE)
 
-df = data.frame(PID = test.y[1], Sale_Price = exp(predict(xgb.model, as.matrix(test_matrix_df))))
+df = data.frame(PID = PIDs, Sale_Price = exp(predict(xgb.model, as.matrix(test_matrix_df))))
 
 write.csv(df,"mysubmission1.txt", row.names = FALSE, quote=FALSE)
 
@@ -137,12 +188,12 @@ write.csv(df,"mysubmission1.txt", row.names = FALSE, quote=FALSE)
 
 # Lasso regression
 mylasso.lambda.seq = exp(seq(-10, 1, length.out = 100))
-cv.out = cv.glmnet(as.matrix(train_matrix_df), as.matrix(train.y), alpha = 0.77, 
+cv.out = cv.glmnet(as.matrix(train_matrix_df), as.matrix(train.y), alpha = 1, 
                    lambda = mylasso.lambda.seq)
 
 best.lam = cv.out$lambda.min
 Ytest.pred = exp(predict(cv.out, s = best.lam, newx = as.matrix(test_matrix_df)))
 colnames(Ytest.pred)[1]<-"Sale_Price"
-ridge_df = data.frame(PID = test.y[1], Sale_Price = Ytest.pred)
+ridge_df = data.frame(PID =  PIDs, Sale_Price = Ytest.pred)
 write.csv(ridge_df,"mysubmission2.txt", row.names = FALSE, quote=FALSE)
 
