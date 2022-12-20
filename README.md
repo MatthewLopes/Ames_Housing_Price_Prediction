@@ -1,4 +1,4 @@
-# project_1
+# Ames Housing Price Prediction
 
 Project 1: Predict the Housing Prices in Ames
 Fall 2022
